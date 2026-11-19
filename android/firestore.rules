@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// Paste this into: Firebase console > Build > Firestore Database > Rules > Publish.
+//
+// Every phone signs in anonymously and gets its own private space: users/<its id>/chat.
+// A phone may read its own chats and add new ones. Nothing can be changed or deleted from the app,
+// and every other place in the database stays closed.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid}/chat/{chatId} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.resource.data.keys().hasOnly(['you', 'thala', 'tamil', 'time'])
+                    && request.resource.data.you is string
+                    && request.resource.data.you.size() <= 2000
+                    && request.resource.data.thala is string
+                    && request.resource.data.thala.size() <= 4000
+                    && request.resource.data.tamil is bool
+                    && request.resource.data.time is timestamp;
+    }
+  }
+}
