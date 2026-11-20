@@ -41,3 +41,13 @@ Do not commit passwords, private API keys, signing keys, or service-account file
 ## License
 
 See [LICENSE](LICENSE).
+
+## Download the THALA AI APK
+
+The **Import and publish THALA AI APK** workflow builds the latest source from [sivabalan37-dev/Thala-ai](https://github.com/sivabalan37-dev/Thala-ai) and commits the installable debug APK into this repository:
+
+- [Download THALA-AI-debug.apk](downloads/THALA-AI-debug.apk)
+- [View SHA-256 checksum](downloads/THALA-AI-debug.apk.sha256)
+
+The APK links become available after the import workflow completes successfully. This is a **debug build**, not a Play Store release-signed build.
+
