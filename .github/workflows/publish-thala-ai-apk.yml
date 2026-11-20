@@ -1,4 +1,4 @@
-name: Import and publish THALA AI APK
+name: One-time THALA AI APK import
 
 on:
   push:
@@ -14,89 +14,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-commit:
-    name: Build THALA AI and add APK to this repository
+  import-apk:
+    name: Import built THALA AI APK
     runs-on: ubuntu-latest
-    timeout-minutes: 35
-
+    timeout-minutes: 5
     steps:
       - name: Check out destination repository
         uses: actions/checkout@v4
 
-      - name: Check out THALA AI source
-        uses: actions/checkout@v4
-        with:
-          repository: sivabalan37-dev/Thala-ai
-          ref: main
-          path: thala-ai-source
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Set up Gradle 8.13
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.13"
-
-      - name: Extract and integrate THALA AI source
+      - name: Download the existing successful build artifact
+        env:
+          APK_ARCHIVE_URL: "https://sdmntprindiasocentral.oaiusercontent.com/files/00000000-4aac-8211-acaa-7651f63da274/raw?se=2026-11-20T12%3A18%3A06Z&sp=r&sv=2026-06-06&sr=b&scid=539f2ced-a24c-5e73-af6f-6f38b21ba559&skoid=fb469448-2cc9-41bd-a5a6-6e020952b47a&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-20T04%3A11%3A46Z&ske=2026-11-21T04%3A11%3A46Z&sks=b&skv=2026-06-06&sig=4s6fiRGL5cvShnsyEaMm0jYFE8jTMcpT1ec6E%2BYBm9Q%3D"
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE_DIR="$GITHUB_WORKSPACE/thala-ai-source"
-          test -s "$SOURCE_DIR/thala_ai.zip"
-          unzip -tq "$SOURCE_DIR/thala_ai.zip"
-          mkdir -p "$RUNNER_TEMP/thala-ai-project"
-          unzip -q "$SOURCE_DIR/thala_ai.zip" -d "$RUNNER_TEMP/thala-ai-project"
-          PROJECT_DIR="$RUNNER_TEMP/thala-ai-project/thala_ai"
-
-          cp "$SOURCE_DIR/app/src/main/java/com/thala/assistant/VoiceEngine.kt" "$PROJECT_DIR/app/src/main/java/com/thala/assistant/VoiceEngine.kt"
-          cp "$SOURCE_DIR/app/src/main/java/com/thala/assistant/LocalAiEngine.kt" "$PROJECT_DIR/app/src/main/java/com/thala/assistant/LocalAiEngine.kt"
-          cp "$SOURCE_DIR/app/src/main/java/com/thala/assistant/LocalAiActivity.kt" "$PROJECT_DIR/app/src/main/java/com/thala/assistant/LocalAiActivity.kt"
-          python3 "$SOURCE_DIR/scripts/integrate_voice_engine.py" "$PROJECT_DIR"
-          python3 "$SOURCE_DIR/scripts/integrate_local_ai.py" "$PROJECT_DIR"
-
-          test -f "$PROJECT_DIR/settings.gradle.kts"
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
-      - name: Build debug APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          gradle -p "$PROJECT_DIR" :app:assembleDebug --stacktrace
-
-      - name: Verify and stage APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK_PATH="$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -type f -name '*.apk' -print -quit)"
-          if [ -z "$APK_PATH" ]; then
-            echo "::error::Gradle completed without producing an APK."
-            exit 1
-          fi
-          mkdir -p "$GITHUB_WORKSPACE/downloads"
-          cp "$APK_PATH" "$GITHUB_WORKSPACE/downloads/THALA-AI-debug.apk"
-          cd "$GITHUB_WORKSPACE"
+          curl --fail --location --retry 2 --retry-delay 3 "$APK_ARCHIVE_URL" --output "$RUNNER_TEMP/thala-ai-apk.zip"
+          unzip -tq "$RUNNER_TEMP/thala-ai-apk.zip"
+          mkdir -p downloads
+          unzip -jo "$RUNNER_TEMP/thala-ai-apk.zip" 'THALA-AI-debug.apk' -d downloads
+          test -s downloads/THALA-AI-debug.apk
           sha256sum downloads/THALA-AI-debug.apk > downloads/THALA-AI-debug.apk.sha256
           ls -lh downloads/THALA-AI-debug.apk
           cat downloads/THALA-AI-debug.apk.sha256
 
       - name: Commit APK to destination repository
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add downloads/THALA-AI-debug.apk downloads/THALA-AI-debug.apk.sha256
           if git diff --cached --quiet; then
-            echo "The APK and checksum are already up to date."
+            echo "The APK and checksum are already present."
             exit 0
           fi
-          git commit -m "Add latest THALA AI debug APK"
+          git commit -m "Add THALA AI debug APK"
           git push origin "HEAD:${GITHUB_REF_NAME}"
